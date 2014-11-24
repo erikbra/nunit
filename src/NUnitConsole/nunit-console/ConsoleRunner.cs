@@ -51,6 +51,7 @@ namespace NUnit.ConsoleRunner
 
         private ITestEngine _engine;
         private ConsoleOptions _options;
+        private IResultService _resultService;
 
         private TextWriter _outWriter = Console.Out;
         private TextWriter _errorWriter = Console.Error;
@@ -66,10 +67,13 @@ namespace NUnit.ConsoleRunner
             _engine = engine;
             _options = options;
             _workDirectory = options.WorkDirectory;
+
             if (_workDirectory == null)
                 _workDirectory = Environment.CurrentDirectory;
             else if (!Directory.Exists(_workDirectory))
                 Directory.CreateDirectory(_workDirectory);
+
+            _resultService = _engine.Services.GetService<IResultService>();
         }
 
         #endregion
@@ -105,14 +109,12 @@ namespace NUnit.ConsoleRunner
 
             if (_options.ExploreOutputSpecifications.Count == 0)
             {
-                new TestCaseOutputWriter().WriteResultFile(result, Console.Out);
+                _resultService.GetResultWriter("cases", null).WriteResultFile(result, Console.Out);
             }
             else
             {
-                var outputManager = new OutputManager(_workDirectory);
-
                 foreach (OutputSpecification spec in _options.ExploreOutputSpecifications)
-                    outputManager.WriteResultFile(result, spec);
+                    _resultService.GetResultWriter(spec.Format, new object[] { spec.Transform }).WriteResultFile(result, spec.OutputPath);
             }
 
             return ConsoleRunner.OK;
@@ -123,11 +125,8 @@ namespace NUnit.ConsoleRunner
             // TODO: We really need options as resolved by engine for most of  these
             DisplayRequestedOptions();
 
-            // TODO: Inject this?
-            var outputManager = new OutputManager(_workDirectory);
-
-            foreach (var outputSpec in _options.ResultOutputSpecifications)
-                outputManager.CheckWritability(outputSpec);
+            foreach (var spec in _options.ResultOutputSpecifications)
+                GetResultWriter(spec).CheckWritability(spec.OutputPath);
 
             // TODO: Incorporate this in EventCollector?
             RedirectOutputAsRequested();
@@ -156,8 +155,8 @@ namespace NUnit.ConsoleRunner
             var reporter = new ResultReporter(result, _options);
             reporter.ReportResults();
 
-            foreach (var outputSpec in _options.ResultOutputSpecifications)
-                outputManager.WriteResultFile(result, outputSpec);
+            foreach (var spec in _options.ResultOutputSpecifications)
+                GetResultWriter(spec).WriteResultFile(result, spec.OutputPath);
 
             return reporter.Summary.ErrorsAndFailures;
         }
@@ -174,8 +173,8 @@ namespace NUnit.ConsoleRunner
                 ColorConsole.WriteLabel("    Worker Threads: ", _options.NumWorkers.ToString(), true);
             ColorConsole.WriteLabel("    Work Directory: ", _workDirectory, true);
             ColorConsole.WriteLabel("    Internal Trace: ", _options.InternalTraceLevel ?? "Off", true);
-            //if (options.DisplayTeamCityServiceMessages)
-            //    ColorConsole.WriteLine("    Display TeamCity Service Messages");
+            if (_options.TeamCity)
+                ColorConsole.WriteLine(ColorStyle.Label, "    Display TeamCity Service Messages");
             Console.WriteLine();
 
             if (_options.TestList.Count > 0)
@@ -219,6 +218,11 @@ namespace NUnit.ConsoleRunner
             _errorWriter.Flush();
             if (_options.ErrFile != null)
                 _errorWriter.Close();
+        }
+
+        private IResultWriter GetResultWriter(OutputSpecification spec)
+        {
+            return _resultService.GetResultWriter(spec.Format, new object[] { spec.Transform });
         }
 
         // This is public static for ease of testing

@@ -1,5 +1,5 @@
 ﻿// ***********************************************************************
-// Copyright (c) 2011 Charlie Poole
+// Copyright (c) 2014 Charlie Poole
 //
 // Permission is hereby granted, free of charge, to any person obtaining
 // a copy of this software and associated documentation files (the
@@ -22,19 +22,38 @@
 // ***********************************************************************
 
 using System;
+using System.IO;
 using System.Text;
 using System.Xml;
-using System.IO;
-using NUnit.ConsoleRunner.Utilities;
+using System.Xml.Xsl;
 
-namespace NUnit.ConsoleRunner
+namespace NUnit.Engine.Services
 {
-    /// <summary>
-    /// NUnit3XmlOutputWriter is responsible for writing the results
-    /// of a test to a file in NUnit 3.0 format.
-    /// </summary>
-    public class NUnit3XmlOutputWriter : IResultWriter
+    public class XmlTransformResultWriter : IResultWriter
     {
+        private string _xsltFile;
+        private readonly XslCompiledTransform _transform = new XslCompiledTransform();
+
+        public XmlTransformResultWriter(object[] args)
+        {
+            Guard.ArgumentNotNull(args, "args");
+            _xsltFile = args[0] as string;
+
+            Guard.ArgumentValid(
+                !string.IsNullOrEmpty(_xsltFile),
+                "Argument to XmlTransformWriter must be a non-empty string",
+                "args");
+
+            try
+            {
+                _transform.Load(_xsltFile);
+            }
+            catch (Exception ex)
+            {
+                throw new ArgumentException("Unable to load transform " + _xsltFile, ex.InnerException);
+            }
+        }
+
         /// <summary>
         /// Checks if the output is writable. If the output is not
         /// writable, this method should throw an exception.
@@ -42,42 +61,29 @@ namespace NUnit.ConsoleRunner
         /// <param name="outputPath"></param>
         public void CheckWritability(string outputPath)
         {
-            XmlNode commandLine = GetCommandLine();
-            WriteResultFile(commandLine, outputPath);
-        }
-
-        public void WriteResultFile(XmlNode resultNode, string outputPath)
-        {
-            using (var writer = new StreamWriter(outputPath, false, Encoding.UTF8))
+            using ( new StreamWriter( outputPath, false ) )
             {
-                WriteResultFile(resultNode, writer);
+                // We don't need to check if the XSLT file exists, 
+                // that would have thrown in the constructor
             }
         }
 
-        private void WriteResultFile(XmlNode resultNode, TextWriter writer)
+        public void WriteResultFile(XmlNode result, TextWriter writer)
         {
-            var settings = new XmlWriterSettings();
-            settings.Indent = true;
-
-            using (XmlWriter xmlWriter = XmlWriter.Create(writer, settings))
+            using (var xmlWriter = new XmlTextWriter(writer))
             {
-                xmlWriter.WriteStartDocument(false);
-                resultNode.WriteTo(xmlWriter);
+                xmlWriter.Formatting = Formatting.Indented;
+                _transform.Transform(result, xmlWriter);
             }
         }
 
-        private XmlNode GetCommandLine()
+        public void WriteResultFile(XmlNode result, string outputPath)
         {
-            var doc = new XmlDocument();
-            var test = doc.CreateElement("test-run");
-            test.AddAttribute("start-time", DateTime.UtcNow.ToString("u"));
-            doc.AppendChild(test);
-
-            var cmd = doc.CreateElement("command-line");
-            var cdata = doc.CreateCDataSection(Environment.CommandLine);
-            cmd.AppendChild(cdata);
-            test.AppendChild(cmd);
-            return doc;
+            using (var xmlWriter = new XmlTextWriter(outputPath, Encoding.Default))
+            {
+                xmlWriter.Formatting = Formatting.Indented;
+                _transform.Transform(result, xmlWriter);
+            }
         }
     }
 }

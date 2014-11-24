@@ -22,33 +22,30 @@
 // ***********************************************************************
 
 using System.IO;
-using System.Text;
-using System.Xml;
+using NUnit.Framework;
 
-namespace NUnit.ConsoleRunner
+namespace NUnit.Engine.Services.ResultWriters.Tests
 {
-    public class TestCaseOutputWriter : IResultWriter
+    public class XmlTransformResultWriterTests : XmlOutputTest
     {
-        public void CheckWritability(string outputPath)
+        [Test]
+        public void SummaryTransformTest()
         {
-            using (new StreamWriter(outputPath, false, Encoding.UTF8))
-            {
-                // Opening is enough to check
-            }
-        }
+            var transformPath = GetLocalPath("TextSummary.xslt");
+            StringWriter writer = new StringWriter();
+            new XmlTransformResultWriter(new object[] { transformPath }).WriteResultFile(EngineResult.Xml, writer);
 
-        public void WriteResultFile(XmlNode resultNode, string outputPath)
-        {
-            using (var writer = new StreamWriter(outputPath, false, Encoding.UTF8))
-            {
-                WriteResultFile(resultNode, writer);
-            }
-        }
+            string summary = string.Format(
+                "Tests Run: {0}, Passed: {1}, Failed: {2}, Inconclusive: {3}, Skipped: {4}",
+                EngineResult.Xml.Attributes["total"].Value,
+                EngineResult.Xml.Attributes["passed"].Value,
+                EngineResult.Xml.Attributes["failed"].Value,
+                EngineResult.Xml.Attributes["inconclusive"].Value,
+                EngineResult.Xml.Attributes["skipped"].Value);
 
-        public void WriteResultFile(XmlNode resultNode, TextWriter writer)
-        {
-            foreach (XmlNode node in resultNode.SelectNodes("//test-case"))
-                writer.WriteLine(node.Attributes["fullname"].Value);
+            string output = writer.GetStringBuilder().ToString();
+    
+            Assert.That(output, Contains.Substring(summary));
         }
     }
 }

@@ -1,5 +1,5 @@
 ﻿// ***********************************************************************
-// Copyright (c) 2011 Charlie Poole
+// Copyright (c) 2014 Charlie Poole
 //
 // Permission is hereby granted, free of charge, to any person obtaining
 // a copy of this software and associated documentation files (the
@@ -22,53 +22,31 @@
 // ***********************************************************************
 
 using System.IO;
-using System.Text;
 using System.Xml;
-using System.Xml.Xsl;
 
-namespace NUnit.ConsoleRunner
+namespace NUnit.Engine
 {
-    public class XmlTransformOutputWriter : IResultWriter
+    public interface IResultWriter
     {
-        private string _xsltFile;
-        private readonly XslCompiledTransform _transform = new XslCompiledTransform();
-
-        public XmlTransformOutputWriter(string xsltFile)
-        {
-            _xsltFile = xsltFile;
-            _transform.Load(xsltFile);
-        }
-
         /// <summary>
-        /// Checks if the output is writable. If the output is not
+        /// Checks if the output path is writable. If the output is not
         /// writable, this method should throw an exception.
         /// </summary>
         /// <param name="outputPath"></param>
-        public void CheckWritability(string outputPath)
-        {
-            using ( new StreamWriter( outputPath, false ) )
-            {
-                // We don't need to check if the XSLT file exists, 
-                // that would have thrown in the constructor
-            }
-        }
+        void CheckWritability(string outputPath);
 
-        public void WriteResultFile(XmlNode result, TextWriter writer)
-        {
-            using (var xmlWriter = new XmlTextWriter(writer))
-            {
-                xmlWriter.Formatting = Formatting.Indented;
-                _transform.Transform(result, xmlWriter);
-            }
-        }
+        /// <summary>
+        /// Writes result to the specified output path.
+        /// </summary>
+        /// <param name="resultNode">XmlNode for the result</param>
+        /// <param name="outputPath">Path to which it should be written</param>
+        void WriteResultFile(XmlNode resultNode, string outputPath);
 
-        public void WriteResultFile(XmlNode result, string outputPath)
-        {
-            using (var xmlWriter = new XmlTextWriter(outputPath, Encoding.Default))
-            {
-                xmlWriter.Formatting = Formatting.Indented;
-                _transform.Transform(result, xmlWriter);
-            }
-        }
+        /// <summary>
+        /// Writes result to a TextWriter.
+        /// </summary>
+        /// <param name="resultNode">XmlNode for the result</param>
+        /// <param name="writer">TextWriter to which it should be written</param>
+        void WriteResultFile(XmlNode resultNode, TextWriter writer);
     }
 }

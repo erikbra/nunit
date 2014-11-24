@@ -1,5 +1,5 @@
 ﻿// ***********************************************************************
-// Copyright (c) 2011 Charlie Poole
+// Copyright (c) 2014 Charlie Poole
 //
 // Permission is hereby granted, free of charge, to any person obtaining
 // a copy of this software and associated documentation files (the
@@ -28,11 +28,11 @@ using System.Text;
 using System.Xml;
 using System.IO;
 
-namespace NUnit.ConsoleRunner
+namespace NUnit.Engine.Services.ResultWriters
 {
-    using Utilities;
+    using Internal;
 
-    public class NUnit2XmlOutputWriter : IResultWriter
+    public class NUnit2XmlResultWriter : IResultWriter
     {
         private XmlWriter xmlWriter;
 
@@ -78,7 +78,7 @@ namespace NUnit.ConsoleRunner
 
         private void InitializeXmlFile(XmlNode result)
         {
-            ResultSummary summaryResults = new ResultSummary(result);
+            NUnit2ResultSummary summaryResults = new NUnit2ResultSummary(result);
 
             xmlWriter.WriteStartDocument(false);
             xmlWriter.WriteComment("This file represents the results of running a test suite");

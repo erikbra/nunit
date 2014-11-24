@@ -1,5 +1,5 @@
 ﻿// ***********************************************************************
-// Copyright (c) 2011 Charlie Poole
+// Copyright (c) 2014 Charlie Poole
 //
 // Permission is hereby granted, free of charge, to any person obtaining
 // a copy of this software and associated documentation files (the
@@ -22,30 +22,33 @@
 // ***********************************************************************
 
 using System.IO;
-using NUnit.Framework;
+using System.Text;
+using System.Xml;
 
-namespace NUnit.ConsoleRunner.Tests
+namespace NUnit.Engine.Services
 {
-    public class XmlTransformOutputWriterTests : XmlOutputTest
+    public class TestCaseResultWriter : IResultWriter
     {
-        [Test]
-        public void SummaryTransformTest()
+        public void CheckWritability(string outputPath)
         {
-            var transformPath = GetLocalPath("TextSummary.xslt");
-            StringWriter writer = new StringWriter();
-            new XmlTransformOutputWriter(transformPath).WriteResultFile(EngineResult.Xml, writer);
+            using (new StreamWriter(outputPath, false, Encoding.UTF8))
+            {
+                // Opening is enough to check
+            }
+        }
 
-            string summary = string.Format(
-                "Tests Run: {0}, Passed: {1}, Failed: {2}, Inconclusive: {3}, Skipped: {4}",
-                EngineResult.Xml.Attributes["total"].Value,
-                EngineResult.Xml.Attributes["passed"].Value,
-                EngineResult.Xml.Attributes["failed"].Value,
-                EngineResult.Xml.Attributes["inconclusive"].Value,
-                EngineResult.Xml.Attributes["skipped"].Value);
+        public void WriteResultFile(XmlNode resultNode, string outputPath)
+        {
+            using (var writer = new StreamWriter(outputPath, false, Encoding.UTF8))
+            {
+                WriteResultFile(resultNode, writer);
+            }
+        }
 
-            string output = writer.GetStringBuilder().ToString();
-    
-            Assert.That(output, Contains.Substring(summary));
+        public void WriteResultFile(XmlNode resultNode, TextWriter writer)
+        {
+            foreach (XmlNode node in resultNode.SelectNodes("//test-case"))
+                writer.WriteLine(node.Attributes["fullname"].Value);
         }
     }
 }
